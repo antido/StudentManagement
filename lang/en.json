@@ -7,5 +7,7 @@
     "Here you can manage teacher data, view details, etc.": "Here you can manage teacher data, view details, etc.",
     "Here you can manage student data, view details, etc.": "Here you can manage student data, view details, etc.",
     "Language": "Language",
-    "welcome": "welcome"
+    "welcome": "welcome",
+    "Name": "Name",
+    "Last Name": "Last Name"
 }

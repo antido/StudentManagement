@@ -3,7 +3,7 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { useTranslation } from 'react-i18next';
 
 function Teachers() {
-    const {name, last_name} = usePage().props;
+    const {a, b} = usePage().props;
     const {t, i18n} = useTranslation();
 
     return (
@@ -23,8 +23,8 @@ function Teachers() {
                     </p>
                 </div>
                 <div className="bg-white p4 rounded shadow text-sm text-gray-600">
-                    <p><strong>abc:</strong></p>
-                    <p><strong>def:</strong></p>
+                    <p><strong>A: </strong>{t(a)}</p>
+                    <p><strong>B: </strong>{t(b)}</p>
                 </div>
             </section>
         </main>
