@@ -11,7 +11,10 @@ class TeacherController extends Controller
      */
     public function index()
     {
-        return inertia('Teachers/Index');
+        return inertia('Teachers/Index', [
+            'a' => 'Name',
+            'b' => 'Last Name'
+        ]);
     }
 
     /**

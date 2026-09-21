@@ -15,6 +15,12 @@ export default function LanguageSwitcher() {
         i18n.changeLanguage(selectedLang);
 
         localStorage.setItem('lang', selectedLang);
+
+        router.get(window.location.pathname, {lang: selectedLang}, {
+            replace: true,
+            preserveScroll: true,
+            preserveState: true
+        });
     }
 
     return (

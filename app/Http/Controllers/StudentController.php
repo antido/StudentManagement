@@ -3,22 +3,43 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Student;
 
 class StudentController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        return inertia('Students/Index');
+    public function index(Request $request)
+    {   
+        $search = $request->input('search');
+        $sortField = $request->input('sort', 'id');
+        $sortDirection = $request->input('direction', 'desc');
+
+        $students = Student::when($search, function($query, $search){
+                               $query->whereRaw(
+                                            "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
+                                            ["%{$search}%"]
+                                        )
+                                    ->orWhere('email', 'like', "%{$search}%");
+                            })
+                            ->orderBy($sortField, $sortDirection)
+                            ->paginate(5)
+                            ->withQueryString();
+
+        return inertia('Students/Index', [
+            'students' => $students,
+            'search' => $search,
+            'sort' => $sortField,
+            'direction' => $sortDirection
+        ]);
     }
 
     public function withData()
     {    
         return inertia('Students/Index', [
-            'a' => 'aAa',
-            'b' => 'bBb'
+            'a' => 'Name',
+            'b' => 'Last Name'
         ]);
     }
 
