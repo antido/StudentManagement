@@ -40,6 +40,9 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
             'local' => app()->getLocale(),
+            'flash' => [
+                'success' => fn() => $request->session()->get('success')
+            ]
         ];
     }
 }
