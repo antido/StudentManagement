@@ -24,11 +24,20 @@ export default function LanguageSwitcher() {
     }
 
     return (
-        <div>
-            <label>{t('Language')}</label>
-            <select onChange={changeLanguage} value={i18n.language}>
+        <div className="flex items-center space-x-2">
+            <label htmlFor="lang-select" className="text-sm">
+                {t('language')}:
+            </label>
+            <select
+                id="lang-select"
+                onChange={changeLanguage}
+                value={i18n.language}
+                className="border px-2 py-1 rounded text-sm"
+            >
                 {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>{lang.label}</option>    
+                    <option key={lang.code} value={lang.code}>
+                        {lang.label}
+                    </option>
                 ))}
             </select>
         </div>

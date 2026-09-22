@@ -12,6 +12,14 @@ export default function Sidebar() {
         <aside className="w-64 bg-gray-100 p4 min-h-screen">
             <ul className="space-y-2">
                 <li>
+                    <Link
+                        href={`/dashboard?lang=${lang}`}
+                        className={`${baseLinkClasses} ${url === `/dashboard?lang=${lang}` ? activeClasses : inactiveClasses}`}
+                    >
+                        Dashboard
+                    </Link>
+                </li>
+                <li>
                     <Link 
                         href={`/students?lang=${lang}`} 
                         className={`${baseLinkClasses} ${url === `/students?lang=${lang}` ? activeClasses : inactiveClasses}`}
@@ -25,6 +33,14 @@ export default function Sidebar() {
                         className={`${baseLinkClasses} ${url === `/teachers?lang=${lang}` ? activeClasses : inactiveClasses}`}
                     >
                         Teachers
+                    </Link>
+                </li>
+                <li>
+                    <Link
+                        href={`/classes?lang=${lang}`}
+                        className={`${baseLinkClasses} ${url === `/classes?lang=${lang}` ? activeClasses : inactiveClasses}`}
+                    >
+                        Classes
                     </Link>
                 </li>
             </ul>
