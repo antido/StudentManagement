@@ -2,6 +2,7 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { usePage, router, Link } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
+import Pagination from '@/Components/Pagination';
 
 export default function TeachersIndex() {
     const { teachers, search: initialSearch, sort, direction, flash } = usePage().props;
@@ -18,7 +19,6 @@ export default function TeachersIndex() {
         });
     };
 
-
     const handleSort = (field) => {
         const newDirection = sort === field && direction === 'asc' ? 'desc' : 'asc';
         router.get('teachers', {
@@ -31,14 +31,10 @@ export default function TeachersIndex() {
         });
     };
 
-    // ✅ New: Show arrow for active sort
+    // Show arrow for active sort
     const renderSortArrow = (field) => {
         if (sort !== field) return null;
         return direction === 'asc' ? ' ▲' : ' ▼';
-    };
-
-    const handlePageChange = (url) => {
-        if (url) router.visit(url);
     };
 
     const [msg, setMsg] = useState(flash.success);
@@ -47,7 +43,6 @@ export default function TeachersIndex() {
         setMsg(null);
     }, 2000);
 
-
     const handleDelete = (id) => {
         if (confirm('Are you sure you want to delete this teacher?')) {
             router.visit(route('teachers.destroy', id), {
@@ -55,7 +50,6 @@ export default function TeachersIndex() {
             });
         }
     };
-
 
     return (
         <DashboardLayout>
@@ -72,27 +66,33 @@ export default function TeachersIndex() {
                     <p className="text-sm text-gray-500">{t('Welcome to the Teacher management section.')}</p>
                 </header>
 
-                <form onSubmit={handleSearch} className="mb-4 flex gap-2">
-                    <input
-                        type="text"
-                        placeholder={t('Search Teachers...')}
-                        className="w-full md:w-1/3 px-3 py-2 border rounded"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
-                        {t('Search')}
-                    </button>
-                </form>
-
-
                 <div className="overflow-x-auto bg-white rounded shadow p-4">
-                    <Link
-                        href={route('teachers.create')}
-                        className="inline-block mb-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition"
-                    >
-                        {t('Create Teacher')}
-                    </Link>
+                    <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        {/* Search Form */}
+                        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+                            <input
+                                type="text"
+                                placeholder={t('Search Teachers...')}
+                                className="w-full md:w-64 px-3 py-2 border rounded"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+                                {t('Search')}
+                            </button>
+                        </form>
+
+                        {/* Right-side actions */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                                href={route('teachers.create')}
+                                className="inline-block mb-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition"
+                            >
+                                {t('Create Teacher')}
+                            </Link>
+                        </div>
+                    </div>
+                    
                     <table className="min-w-full table-auto">
                         <thead>
                             <tr className="bg-gray-100 text-left text-sm font-medium text-gray-700">
@@ -104,12 +104,12 @@ export default function TeachersIndex() {
                             </tr>
                         </thead>
                         <tbody>
-                            {teachers.data.map((teacher) => {
+                            {teachers.data.map((teacher, index) => {
                                 const fullName = teacher.first_name + ' ' + teacher.middle_name + ' ' + teacher.last_name;
 
                                 return (
                                     <tr key={teacher.id} className="border-b text-sm">
-                                        <td className="p-2">{teacher.id}</td>
+                                        <td className="p-2">{(teachers.current_page - 1) * teachers.per_page + index + 1}</td>
                                         <td className="p-2">{fullName}</td>
                                         <td className="p-2">{teacher.email}</td>
                                         <td className="p-2">{teacher.phone}</td>
@@ -140,20 +140,9 @@ export default function TeachersIndex() {
                             })}
                         </tbody>
                     </table>
-                    <div className="flex justify-end mt-4 gap-2 text-sm">
-                        {teachers.links.map((link, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => handlePageChange(link.url)}
-                                disabled={!link.url}
-                                className={`px-3 py-1 rounded ${link.active
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    } ${!link.url ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
+
+                    {/* Pagination */}
+                    <Pagination links={teachers.links} align="center" />
                 </div>
             </main>
         </DashboardLayout>

@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\StudentsExport;
+use App\Imports\StudentsImport;
 use App\Models\Student;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class StudentController extends Controller
 {
@@ -261,5 +265,39 @@ class StudentController extends Controller
                 ->route('students.index')
                 ->with('error', 'Failed to delete student. Please try again.');
         }
+    }
+
+    /**
+     * Export table data
+     */
+    public function export()
+    {
+        return Excel::download(new StudentsExport, 'students.xlsx');
+    }
+
+    /**
+     * Import data to database
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,csv',
+        ]);
+
+        Excel::import(new StudentsImport, $request->file('file'));
+
+        return redirect()->back()->with('success', 'Students imported successfully.');
+    }
+
+    public function studentReport($id)
+    {
+        // Load student with related classes + scores
+        $student = Student::with('studentClasses.class')->findOrFail($id);
+
+        // Generate PDF
+        $pdf = Pdf::loadView('pdfs.student_report', compact('student'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->stream("student_report_{$student->id}.pdf");
     }
 }

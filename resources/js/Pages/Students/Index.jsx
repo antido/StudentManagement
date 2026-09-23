@@ -2,6 +2,8 @@ import { usePage, router, Link  } from '@inertiajs/react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
+import Pagination from '@/Components/Pagination';
+import StudentsPDF from '@/Components/StudentsPDF';
 
 export default function Students() {
     const {students, search:initialSearch, sort, direction, flash} = usePage().props;
@@ -32,10 +34,6 @@ export default function Students() {
     const renderSortArrow = (field) => {
         if (sort !== field) return null;
         return direction === 'asc' ? '▲' : '▼';
-    }
-
-    const handlePageChange = (url) => {
-        if (url) router.visit(url);
     }
 
     const [msg, setMsg] = useState(flash.success);
@@ -70,27 +68,61 @@ export default function Students() {
                     </p>
                 </header>
 
-                 {/* ✅ New: Search form */}
-                <form onSubmit={handleSearch} className="mb-4 flex gap-2">
-                    <input
-                        type="text"
-                        placeholder={t('Search students...')}
-                        className="w-full md:w-1/3 px-3 py-2 border rounded"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
-                        {t('Search')}
-                    </button>
-                </form>
-
                 <div className="overflow-x-auto bg-white rounded shadow p-4">
-                    <Link
-                        href={route('students.create')}
-                        className="inline-block mb-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition"
-                    >
-                        {t('Create Student')}
-                    </Link>
+                    <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        {/* Search form */}
+                        <form onSubmit={handleSearch} className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder={t('Search students...')}
+                                className="w-full md:w-64 px-3 py-2 border rounded"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+                                {t('Search')}
+                            </button>
+                        </form>
+
+                        {/* Right-side actions */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Create */}
+                            <Link
+                                href={route('students.create')}
+                                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition"
+                            >
+                                {t('Create Student')}
+                            </Link>
+
+                            {/* Export */}
+                            <a
+                                href={route('students.export')}
+                                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 transition"
+                            >
+                                {t('Export Students')}
+                            </a>
+
+                            {/* Import */}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    router.post(route('students.import'), formData, {
+                                        forceFormData: true,
+                                    });
+                                }}
+                                className="flex items-center gap-2"
+                            >
+                                <input type="file" name="file" accept=".csv,.xlsx" required className="text-sm" />
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 transition"
+                                >
+                                    {t('Import Students')}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
 
                     <div className="overflow-x-auto bg-white rounded shadow p-4">
                         <table className="min-w-full table-auto">
@@ -140,8 +172,8 @@ export default function Students() {
                                     const fullName = student.first_name + ' ' + student.middle_name + ' ' + student.last_name;
 
                                     return (
-                                        <tr key={index}>
-                                            <td className="p-2">{index + 1}</td>
+                                        <tr key={student.id} className="border-b text-sm">
+                                            <td className="p-2">{(students.current_page - 1) * students.per_page + index + 1}</td>
                                             <td className="p-2">{fullName}</td>
                                             <td className="p-2">{student.email}</td>
                                             <td className="p-2">{student.gender}</td>
@@ -167,6 +199,8 @@ export default function Students() {
                                                 >
                                                     Delete
                                                 </button>
+
+                                                <StudentsPDF studentId={student.id} />
                                             </td>
                                         </tr>
                                     ) 
@@ -174,20 +208,8 @@ export default function Students() {
                             </tbody>
                         </table>
 
-                        <div className="flex justify-end mt-4 gap-2 text-sm">
-                            {students.links.map((link, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => handlePageChange(link.url)}
-                                    disabled={!link.url}
-                                    className={`px-3 py-1 rounded ${link.active
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        } ${!link.url ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
-                        </div>
+                        {/* Pagination */}
+                        <Pagination links={students.links} align="center" />
                     </div>
                 </div>
             </main>
