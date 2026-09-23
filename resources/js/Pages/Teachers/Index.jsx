@@ -121,19 +121,19 @@ export default function TeachersIndex() {
                                                 Edit
                                             </Link>
 
-                                            <button
-                                                onClick={() => handleDelete(teacher.id)}
-                                                className="inline-block px-3 py-1 mx-1 bg-red-600 text-white rounded hover:bg-red-700 transition"
-                                            >
-                                                Delete
-                                            </button>
-
                                             <Link
                                                 href={route('teachers.show', teacher.id)}
                                                 className="inline-block px-3 py-1 mx-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition mr-2"
                                             >
                                                 View
                                             </Link>
+
+                                            <button
+                                                onClick={() => handleDelete(teacher.id)}
+                                                className="inline-block px-3 py-1 mx-1 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                                            >
+                                                Delete
+                                            </button>
                                         </td>
                                     </tr>
                                 )
