@@ -2,6 +2,7 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { usePage, router, Link } from '@inertiajs/react';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
+import Pagination from '@/Components/Pagination';
 
 export default function UsersIndex() {
     const { users, search: initialSearch, sort, direction, flash } = usePage().props;
@@ -26,10 +27,6 @@ export default function UsersIndex() {
         return direction === 'asc' ? ' ▲' : ' ▼';
     };
 
-    const handlePageChange = (url) => {
-        if (url) router.visit(url);
-    };
-
     const handleDelete = (id) => {
         if (confirm('Are you sure you want to delete this user?')) {
             router.visit(route('users.destroy', id), { method: 'delete' });
@@ -47,13 +44,33 @@ export default function UsersIndex() {
                     <p className="text-sm text-gray-500">{t('Manage application users')}</p>
                 </header>
 
-                <form onSubmit={handleSearch} className="mb-4 flex gap-2">
-                    <input type="text" placeholder={t('Search users...')} className="w-full md:w-1/3 px-3 py-2 border rounded" value={search} onChange={(e) => setSearch(e.target.value)} />
-                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">{t('Search')}</button>
-                </form>
-
                 <div className="overflow-x-auto bg-white rounded shadow p-4">
-                    <Link href={route('users.create')} className="inline-block mb-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition">{t('Create User')}</Link>
+
+                    <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        {/* Search Form */}
+                        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
+                            <input 
+                                type="text" 
+                                placeholder={t('Search users...')} 
+                                className="w-full md:w-64 px-3 py-2 border rounded"
+                                value={search} 
+                                onChange={(e) => setSearch(e.target.value)} 
+                            />
+                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+                                {t('Search')}
+                            </button>
+                        </form>
+
+                        {/* Right-side actions */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Link 
+                                href={route('users.create')} 
+                                className="inline-block mb-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition"
+                            >
+                                {t('Create User')}
+                            </Link>
+                        </div>
+                    </div>
 
                     <table className="min-w-full table-auto">
                         <thead>
@@ -65,9 +82,9 @@ export default function UsersIndex() {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.data.map((user) => (
+                            {users.data.map((user, index) => (
                                 <tr key={user.id} className="border-b text-sm">
-                                    <td className="p-2">{user.id}</td>
+                                    <td className="p-2">{(users.current_page - 1) * users.per_page + index + 1}</td>
                                     <td className="p-2">{user.name}</td>
                                     <td className="p-2">{user.email}</td>
                                     <td className="p-2 space-x-2">
@@ -80,17 +97,8 @@ export default function UsersIndex() {
                         </tbody>
                     </table>
 
-                    <div className="flex justify-end mt-4 gap-2 text-sm">
-                        {users.links.map((link, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => handlePageChange(link.url)}
-                                disabled={!link.url}
-                                className={`px-3 py-1 rounded ${link.active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} ${!link.url ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
+                    {/* Pagination */}
+                    <Pagination links={users.links} align="center" />
                 </div>
             </main>
         </DashboardLayout>

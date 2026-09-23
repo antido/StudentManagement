@@ -1,6 +1,7 @@
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { usePage, router, Link } from '@inertiajs/react';
 import { useState } from 'react';
+import Pagination from '@/Components/Pagination';
 
 export default function ClassesIndex() {
     const { classes, flash } = usePage().props;
@@ -40,9 +41,9 @@ export default function ClassesIndex() {
                             </tr>
                         </thead>
                         <tbody>
-                            {classes.data.map(cls => (
+                            {classes.data.map((cls, index) => (
                                 <tr key={cls.id} className="border-b text-sm">
-                                    <td className="p-2">{cls.id}</td>
+                                    <td className="p-2">{(classes.current_page - 1) * classes.per_page + index + 1}</td>
                                     <td className="p-2">{cls.name}</td>
                                     <td className="p-2">{cls.teacher?.first_name} {cls.teacher?.middle_name} {cls.teacher?.last_name}</td>
                                     <td className="p-2 space-x-2">
@@ -71,16 +72,9 @@ export default function ClassesIndex() {
                             ))}
                         </tbody>
                     </table>
-                    <div className="flex justify-end mt-4 gap-2 text-sm">
-                        {classes.links.map((link, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => link.url && router.visit(link.url)}
-                                className={`px-3 py-1 rounded ${link.active ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
+
+                    {/* Pagination */}
+                    <Pagination links={classes.links} align="center" />
                 </div>
             </main>
         </DashboardLayout>
