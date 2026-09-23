@@ -21,7 +21,8 @@ class StudentController extends Controller
         $sortField = $request->input('sort', 'id');
         $sortDirection = $request->input('direction', 'desc');
 
-        $students = Student::when($search, function($query, $search){
+        $students = Student::with('user:id,name')
+                            ->when($search, function($query, $search){
                                $query->whereRaw(
                                             "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
                                             ["%{$search}%"]
@@ -29,7 +30,7 @@ class StudentController extends Controller
                                     ->orWhere('email', 'like', "%{$search}%");
                             })
                             ->orderBy($sortField, $sortDirection)
-                            ->paginate(5)
+                            ->paginate(10)
                             ->withQueryString();
 
         return inertia('Students/Index', [

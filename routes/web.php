@@ -1,9 +1,12 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ClassesController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -37,10 +40,44 @@ Route::controller(TeacherController::class)->group(function() {
     });
 });
 
-Route::fallback(function() {
-    return Inertia::render('Errors/NotFound');
+// Classes
+Route::controller(ClassesController::class)->group(function () {
+    Route::group(['prefix' => 'classes'], function(){
+        Route::get('/', 'index')->name('classes.index');
+        Route::get('/create', 'create')->name('classes.create');
+        Route::post('/', 'store')->name('classes.store');
+        Route::get('/edit/{id}', 'edit')->name('classes.edit');
+        Route::put('/{id}', 'update')->name('classes.update');
+        Route::delete('/{id}', 'destroy')->name('classes.destroy');
+        Route::get('/{id}', 'show')->name('classes.show');
+    });
 });
 
+// Users
+Route::controller(UserController::class)->group(function () {
+    Route::group(['prefix' => 'users'], function(){
+        Route::get('/', 'index')->name('users.index');
+        Route::get('/create', 'create')->name('users.create');
+        Route::post('/', 'store')->name('users.store');
+        Route::get('/edit/{id}', 'edit')->name('users.edit');
+        Route::put('/{id}', 'update')->name('users.update');
+        Route::delete('/{id}', 'destroy')->name('users.destroy');
+        Route::get('/{id}', 'show')->name('users.show');
+    });
+});
+
+// Roles and Permissions
+Route::prefix('roles')->group(function() {
+    Route::get('/', [RolePermissionController::class, 'index'])->name('roles.index');
+    Route::get('/create', [RolePermissionController::class, 'create'])->name('roles.create');
+    Route::post('/roles', [RolePermissionController::class, 'store'])->name('roles.store');
+    Route::get('add-permission-to-role/{id}', [RolePermissionController::class, 'addPermissionToRole']);
+    Route::post('assign-permissions-to-role/{id}', [RolePermissionController::class, 'assignPermissions']);
+    Route::get('add-users-to-role/{id}', [RolePermissionController::class, 'addUsersToRole']);
+    Route::post('assign-users-to-role/{id}', [RolePermissionController::class, 'assignUsersToRole']);
+});
+
+// Authentication (Laravel Breeze)
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
@@ -50,10 +87,6 @@ Route::get('/', function () {
     ]);
 });
 
-// Route::get('/dashboard', function () {
-//     return Inertia::render('Dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -61,3 +94,7 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::fallback(function() {
+    return Inertia::render('Errors/NotFound');
+});

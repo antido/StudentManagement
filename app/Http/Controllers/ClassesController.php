@@ -3,63 +3,103 @@
 namespace App\Http\Controllers;
 
 use App\Models\Classes;
+use App\Models\Teacher;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class ClassesController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $search = $request->input('search');
+        $sortField = $request->input('sort', 'id');
+        $sortDirection = $request->input('direction', 'desc');
+
+        $classes = Classes::with('teacher:id,first_name,middle_name,last_name')
+            ->when($search, function ($query, $search) {
+                $query->whereRaw(
+                            "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
+                            ["%{$search}%"]
+                        );
+            })
+            ->orderBy($sortField, $sortDirection)
+            ->paginate(10)
+            ->withQueryString();
+
+        return Inertia::render('Classes/Index', [
+            'classes' => $classes,
+            'search' => $search,
+            'sort' => $sortField,
+            'direction' => $sortDirection
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        $teachers = Teacher::select('id', 'first_name', 'middle_name', 'last_name')->get();
+        return Inertia::render('Classes/Create', [
+            'teachers' => $teachers
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'teacher_id' => 'required|exists:teachers,id',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
+
+        $class = new Classes();
+        $class->teacher_id = $request->teacher_id;
+        $class->name = $request->name;
+        $class->description = $request->description;
+        $class->save();
+
+        return redirect()->route('classes.index')->with('success', 'Class created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Classes $classes)
+    public function edit($id)
     {
-        //
+        $class = Classes::where('id', $id)->first();
+        $teachers = Teacher::select('id', 'first_name', 'middle_name', 'last_name')->get();
+
+        return Inertia::render('Classes/Edit', [
+            'classItem' => $class,
+            'teachers' => $teachers
+        ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Classes $classes)
+    public function update(Request $request, $id)
     {
-        //
+        $request->validate([
+            'teacher_id' => 'required|exists:teachers,id',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
+
+        $class = Classes::where('id', $id)->first();
+        $class->teacher_id = $request->teacher_id;
+        $class->name = $request->name;
+        $class->description = $request->description;
+        $class->save();
+
+        return redirect()->route('classes.index')->with('success', 'Class updated successfully.');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Classes $classes)
+    public function destroy($id)
     {
-        //
+        $class = Classes::where('id', $id)->first();
+        $class->delete();
+
+        return redirect()->route('classes.index')->with('success', 'Class deleted successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Classes $classes)
+    public function show($id)
     {
-        //
+        $class = Classes::with('teacher:id,first_name,middle_name,last_name')->findOrFail($id);
+        return Inertia::render('Classes/View', [
+            'classItem' => $class
+        ]);
     }
 }

@@ -146,24 +146,27 @@ export default function Students() {
                                             <td className="p-2">{student.email}</td>
                                             <td className="p-2">{student.gender}</td>
                                             <td className="p-2">{student.score}</td>
-                                            <td className="p02">
-                                                <Link 
+                                            <td className="p-2">
+                                                <Link
                                                     href={`/students/edit/${student.id}`} 
-                                                    className="inline-block px-3 py-1 mx-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition">
+                                                    className="inline-block px-3 py-1 mx-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"
+                                                >
                                                     Edit
                                                 </Link>
 
-                                                <button 
-                                                    onClick={() => handleDelete(student.id)} 
-                                                    className="inline-block px-3 py-1 mx-1 bg-red-600 text-white rounded hover:bg-red-700 transition">
-                                                    Delete
-                                                </button>
-
-                                                <Link 
+                                                <Link
                                                     href={route('students.show', student.id)} 
-                                                    className="inline-block px-3 py-1 mx-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition">
+                                                    className="inline-block px-3 py-1 mx-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition mr-2"
+                                                >
                                                     View
                                                 </Link>
+
+                                                <button
+                                                    onClick={() => handleDelete(student.id)} 
+                                                    className="inline-block px-3 py-1 mx-1 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                                                >
+                                                    Delete
+                                                </button>
                                             </td>
                                         </tr>
                                     ) 

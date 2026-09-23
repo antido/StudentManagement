@@ -20,7 +20,8 @@ class TeacherController extends Controller
         $sortField = $request->input('sort', 'id');       // ✅ New: Get sort field (default: id)
         $sortDirection = $request->input('direction', 'desc');
 
-        $teachers = Teacher::when($search, function ($query, $search) {
+        $teachers = Teacher::with('user:id,name')
+                            ->when($search, function ($query, $search) {
                                 $query->whereRaw(
                                         "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
                                         ["%{$search}%"]
@@ -28,7 +29,7 @@ class TeacherController extends Controller
                                     ->orWhere('email', 'like', "%{$search}%");
                             })
                             ->orderBy($sortField, $sortDirection) // ✅ New: Apply sorting
-                            ->paginate(5)
+                            ->paginate(10)
                             ->withQueryString();
 
         return Inertia::render('Teachers/Index', [
