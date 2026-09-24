@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\StudentsExport;
 use App\Imports\StudentsImport;
+use App\Mail\StudentReportMail;
 use App\Models\Student;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -299,5 +301,20 @@ class StudentController extends Controller
             ->setPaper('a4', 'portrait');
 
         return $pdf->stream("student_report_{$student->id}.pdf");
+    }
+
+    public function emailReport($id)
+    {
+        $student = Student::with('studentClasses.class')->findOrFail($id);
+
+        // Generate PDF as raw bytes
+        $pdf = Pdf::loadView('pdfs.student_report', compact('student'))
+            ->setPaper('a4', 'portrait')
+            ->output();
+
+        // Send email with attachment
+        Mail::to($student->email)->send(new StudentReportMail($student, $pdf));
+
+        return back()->with('success', 'Report sent to student email!');
     }
 }

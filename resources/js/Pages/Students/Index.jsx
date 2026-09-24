@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import Pagination from '@/Components/Pagination';
 import StudentsPDF from '@/Components/StudentsPDF';
+import EmailReportButton from '@/Components/EmailReportButton';
 
 export default function Students() {
     const {students, search:initialSearch, sort, direction, flash} = usePage().props;
@@ -201,6 +202,7 @@ export default function Students() {
                                                 </button>
 
                                                 <StudentsPDF studentId={student.id} />
+                                                <EmailReportButton studentId={student.id} />
                                             </td>
                                         </tr>
                                     ) 
