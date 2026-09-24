@@ -24,6 +24,7 @@ Route::middleware(['auth'])->group(function() {
             Route::get('/export', 'export')->name('students.export');
             Route::post('/import', 'import')->name('students.import');
             Route::get('/{id}/report-pdf', 'studentReport')->name('students.report.pdf');
+            Route::get('/{id}/email-report', 'emailReport')->name('students.email.report');
             Route::get('/edit/{id}', 'edit')->name('students.edit');
             Route::put('/{id}', 'update')->name('students.update');
             Route::delete('/{id}', 'destroy')->name('students.destroy');
