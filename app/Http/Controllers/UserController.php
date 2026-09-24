@@ -2,36 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use App\Http\Requests\User\IndexUserRequest;
+use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UpdateUserRequest;
+use App\Http\Resources\UserResource;
+use App\Services\UserService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-
 
 class UserController extends Controller
 {
-    public function index(Request $request)
-    {
-        $search = $request->input('search');
-        $sortField = $request->input('sort', 'id');
-        $sortDirection = $request->input('direction', 'desc');
+    public function __construct(private UserService $users) {}
 
-        $users = User::query()
-            ->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            })
-            ->orderBy($sortField, $sortDirection)
-            ->paginate(10)
-            ->withQueryString();
+    public function index(IndexUserRequest $request)
+    {
+        $users = $this->users->paginate(
+            $request->search(),
+            $request->sortField(),
+            $request->sortDirection()
+        );
 
         return Inertia::render('Users/Index', [
-            'users' => $users,
-            'search' => $search,
-            'sort' => $sortField,
-            'direction' => $sortDirection
+            'users' => $users->through(fn ($user) => new UserResource($user)),
+            'search' => $request->search(),
+            'sort' => $request->sortField(),
+            'direction' => $request->sortDirection(),
         ]);
     }
 
@@ -40,83 +35,72 @@ class UserController extends Controller
         return Inertia::render('Users/Create');
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
-        ]);
-
         try {
-            DB::beginTransaction();
-
-            $user = new User();
-            $user->name = $request->name;
-            $user->email = $request->email;
-            $user->password = Hash::make($request->password);
-            $user->save();
-
-            DB::commit();
+            $this->users->create($request->validated());
 
             return redirect()->route('users.index')->with('success', 'User created successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-
             Log::error('User Create Error', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTrace()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return redirect()->back()->withInput()->withErrors([
-                'error' => 'Something went wrong: ' . $e->getMessage()
+                'error' => 'Something went wrong: '.$e->getMessage(),
             ]);
         }
     }
 
-    public function edit($id)
+    public function edit(string $id)
     {
-        $user = User::findOrFail($id);
         return Inertia::render('Users/Edit', [
-            'user' => $user
+            'user' => new UserResource($this->users->find($id)),
         ]);
     }
 
-    public function update(Request $request)
+    public function update(UpdateUserRequest $request, string $id)
     {
-        $validated = $request->validate([
-            // 'id' => 'required|exists:users,id',
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $request->id,
-            'password' => 'nullable|string|min:6',
-        ]);
+        $user = $this->users->find($id);
 
-        $user = User::findOrFail($request->id);
-        $user->name = $request->name;
-        $user->email = $request->email;
+        try {
+            $this->users->update($user, $request->validated());
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
+            return redirect()->route('users.index')->with('success', 'User updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('User Update Error', [
+                'message' => $e->getMessage(),
+                'user_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()->withInput()->withErrors([
+                'error' => 'Something went wrong: '.$e->getMessage(),
+            ]);
         }
-
-        $user->update();
-
-        return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }
 
-    public function destroy($id)
+    public function destroy(string $id)
     {
-        $user = User::findOrFail($id);
-        $user->delete();
+        try {
+            $this->users->delete($this->users->find($id));
 
-        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
+            return redirect()->route('users.index')->with('success', 'User deleted successfully.');
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete user', [
+                'user_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('users.index')->with('error', 'Failed to delete user. Please try again.');
+        }
     }
 
-    public function show($id)
+    public function show(string $id)
     {
-        $user = User::findOrFail($id);
         return Inertia::render('Users/View', [
-            'user' => $user
+            'user' => new UserResource($this->users->find($id)),
         ]);
     }
 }

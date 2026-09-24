@@ -2,62 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\DashboardService;
 use Illuminate\Http\Request;
-use App\Models\Student;
-use App\Models\Teacher;
-use App\Models\Classes;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
+    public function __construct(private DashboardService $dashboard) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $studentMonthly = Student::selectRaw('Month(created_at) as month, count(*) as total')
-                                ->groupBy('month')
-                                ->orderBy('month')
-                                ->get()
-                                ->pluck('total', 'month');
-
-        $teacherMonthly = Teacher::selectRaw('Month(created_at) as month, count(*) as total')
-                                ->groupBy('month')
-                                ->orderBy('month')
-                                ->get()
-                                ->pluck('total', 'month');
-
-        $months = [
-            'Jan',
-            'Feb',
-            'Mar',
-            'Apr',
-            'May',
-            'Jun',
-            'Jul',
-            'Aug',
-            'Sep',
-            'Oct',
-            'Nov',
-            'Dec',
-        ];
-
-        $chartData = [];
-
-        for ($month = 1; $month <= 12; $month++) {
-            $chartData[] = [
-                'name' => $months[$month - 1],
-                'Students' => $studentMonthly->get($month, 0),
-                'Teachers' => $teacherMonthly->get($month, 0),
-            ];
-        }
-
-        return inertia('Dashboard', [
-            'students' => Student::count(),
-            'teachers' => Teacher::count(),
-            'classes' => Classes::count(),
-            'subjects' => 12,
-            'chartData' => $chartData
-        ]);
+        return Inertia::render('Dashboard', $this->dashboard->stats());
     }
 
     /**

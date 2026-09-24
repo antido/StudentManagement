@@ -2,160 +2,112 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Teacher;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use App\Http\Requests\Teacher\IndexTeacherRequest;
+use App\Http\Requests\Teacher\StoreTeacherRequest;
+use App\Http\Requests\Teacher\UpdateTeacherRequest;
+use App\Http\Resources\TeacherResource;
+use App\Services\TeacherService;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-
 
 class TeacherController extends Controller
 {
-    //
-    public function index(Request $request)
-    {
-        $search = $request->input('search');
-        $sortField = $request->input('sort', 'id');       // ✅ New: Get sort field (default: id)
-        $sortDirection = $request->input('direction', 'desc');
+    public function __construct(private TeacherService $teachers) {}
 
-        $teachers = Teacher::with('user:id,name')
-                            ->when($search, function ($query, $search) {
-                                $query->whereRaw(
-                                        "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
-                                        ["%{$search}%"]
-                                    )
-                                    ->orWhere('email', 'like', "%{$search}%");
-                            })
-                            ->orderBy($sortField, $sortDirection) // ✅ New: Apply sorting
-                            ->paginate(10)
-                            ->withQueryString();
+    public function index(IndexTeacherRequest $request)
+    {
+        $teachers = $this->teachers->paginate(
+            $request->search(),
+            $request->sortField(),
+            $request->sortDirection()
+        );
 
         return Inertia::render('Teachers/Index', [
-            'teachers' => $teachers,
-            'search' => $search,
-            'sort' => $sortField,         // ✅ New
-            'direction' => $sortDirection // ✅ New
+            'teachers' => $teachers->through(fn ($teacher) => new TeacherResource($teacher)),
+            'search' => $request->search(),
+            'sort' => $request->sortField(),
+            'direction' => $request->sortDirection(),
         ]);
     }
-
 
     public function create()
     {
         return Inertia::render('Teachers/Create');
     }
 
-    public function store(Request $request)
+    public function store(StoreTeacherRequest $request)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:teachers,email|unique:users,email',
-            'phone' => 'required|string|max:20',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
-
         try {
-            DB::beginTransaction();
-
-            $user = User::create([
-                'name' => $request->first_name . ' ' . $request->middle_name . ' ' . $request->last_name,
-                'email' => $request->email,
-                'password' => Hash::make('password'),
-            ]);
-
-            $teacherData = [
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'last_name' => $request->last_name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'user_id' => $user->id,
-            ];
-
-            if ($request->hasFile('image')) {
-                $teacherData['image'] = $request->file('image')
-                    ->store('teachers', 'public');
-            }
-
-            Teacher::create($teacherData);
-
-            DB::commit();
+            $this->teachers->create(
+                $request->safe()->except('image'),
+                $request->file('image')
+            );
 
             return redirect()->route('teachers.index')->with('success', 'Teacher and user created successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
+            Log::error('Error creating teacher', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return redirect()->back()->withInput()->withErrors([
-                'error' => 'Something went wrong: ' . $e->getMessage()
+                'error' => 'Something went wrong: '.$e->getMessage(),
             ]);
         }
     }
 
-
-    public function edit($id)
+    public function edit(string $id)
     {
-        $teacher = Teacher::where('id', $id)->first();
         return Inertia::render('Teachers/Edit', [
-            'teacher' => $teacher
+            'teacher' => new TeacherResource($this->teachers->find($id)),
         ]);
     }
 
-    public function update(Request $request)
+    public function update(UpdateTeacherRequest $request, string $id)
     {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:teachers,email',
-            'phone' => 'required|string|max:20',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
+        $teacher = $this->teachers->find($id);
 
-        $teacher = Teacher::where('id', $request->id)->first();
-        $teacher->first_name = $request->first_name;
-        $teacher->middle_name = $request->middle_name;
-        $teacher->last_name = $request->last_name;
-        $teacher->email = $request->email;
-        $teacher->phone = $request->phone;
-        $teacher->user_id = 1;
+        try {
+            $this->teachers->update(
+                $teacher,
+                $request->safe()->except('image'),
+                $request->file('image')
+            );
 
+            return redirect()->route('teachers.index')->with('success', 'Teacher updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error updating teacher', [
+                'message' => $e->getMessage(),
+                'teacher_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
 
-        if ($request->hasFile('image')) {
-            if ($teacher->image && Storage::disk('public')->exists($teacher->image)) {
-                Storage::disk('public')->delete($teacher->image);
-            }
-
-            $path = $request->file('image')->store('teachers', 'public');
-            $teacher->image = $path;
+            return redirect()->back()->withInput()->withErrors([
+                'error' => 'Something went wrong: '.$e->getMessage(),
+            ]);
         }
-
-        $teacher->update();
-
-        return redirect()->route('teachers.index')->with('success', 'Teacher created successfully.');
     }
 
-    public function destroy($id)
+    public function destroy(string $id)
     {
-        $teacher = Teacher::where('id', $id)->first();
-        if ($teacher->image && Storage::disk('public')->exists($teacher->image)) {
-            Storage::disk('public')->delete($teacher->image);
+        try {
+            $this->teachers->delete($this->teachers->find($id));
+
+            return redirect()->route('teachers.index')->with('success', 'Teacher deleted successfully.');
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete teacher', [
+                'teacher_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('teachers.index')->with('error', 'Failed to delete teacher. Please try again.');
         }
-
-        $teacher->delete();
-
-        return redirect()->route('teachers.index')->with('success', 'Teacher deleted successfully.');
     }
 
-    public function show($id)
+    public function show(string $id)
     {
-        $teacher = Teacher::with('user', 'classes')->findOrFail($id);
-        $teacher->image_url = $teacher->image ? asset('storage/' . $teacher->image) : null;
-
         return Inertia::render('Teachers/View', [
-            'teacher' => $teacher
+            'teacher' => new TeacherResource($this->teachers->find($id, ['user', 'classes'])),
         ]);
     }
 }
