@@ -2,104 +2,115 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Classes;
-use App\Models\Teacher;
-use Illuminate\Http\Request;
+use App\Http\Requests\Classes\IndexClassesRequest;
+use App\Http\Requests\Classes\StoreClassesRequest;
+use App\Http\Requests\Classes\UpdateClassesRequest;
+use App\Http\Resources\ClassesResource;
+use App\Http\Resources\TeacherResource;
+use App\Services\ClassesService;
+use App\Services\TeacherService;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ClassesController extends Controller
 {
-    public function index(Request $request)
-    {
-        $search = $request->input('search');
-        $sortField = $request->input('sort', 'id');
-        $sortDirection = $request->input('direction', 'desc');
+    public function __construct(
+        private ClassesService $classes,
+        private TeacherService $teachers,
+    ) {}
 
-        $classes = Classes::with('teacher:id,first_name,middle_name,last_name')
-            ->when($search, function ($query, $search) {
-                $query->whereRaw(
-                            "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
-                            ["%{$search}%"]
-                        );
-            })
-            ->orderBy($sortField, $sortDirection)
-            ->paginate(10)
-            ->withQueryString();
+    public function index(IndexClassesRequest $request)
+    {
+        $classes = $this->classes->paginate(
+            $request->search(),
+            $request->sortField(),
+            $request->sortDirection()
+        );
 
         return Inertia::render('Classes/Index', [
-            'classes' => $classes,
-            'search' => $search,
-            'sort' => $sortField,
-            'direction' => $sortDirection
+            'classes' => $classes->through(fn ($class) => new ClassesResource($class)),
+            'search' => $request->search(),
+            'sort' => $request->sortField(),
+            'direction' => $request->sortDirection(),
         ]);
     }
 
     public function create()
     {
-        $teachers = Teacher::select('id', 'first_name', 'middle_name', 'last_name')->get();
         return Inertia::render('Classes/Create', [
-            'teachers' => $teachers
+            'teachers' => TeacherResource::collection($this->teachers->options()),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreClassesRequest $request)
     {
-        $request->validate([
-            'teacher_id' => 'required|exists:teachers,id',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string'
-        ]);
+        try {
+            $this->classes->create($request->validated());
 
-        $class = new Classes();
-        $class->teacher_id = $request->teacher_id;
-        $class->name = $request->name;
-        $class->description = $request->description;
-        $class->save();
+            return redirect()->route('classes.index')->with('success', 'Class created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error creating class', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
-        return redirect()->route('classes.index')->with('success', 'Class created successfully.');
+            return redirect()->back()->withInput()->withErrors([
+                'error' => 'Something went wrong: '.$e->getMessage(),
+            ]);
+        }
     }
 
-    public function edit($id)
+    public function edit(string $id)
     {
-        $class = Classes::where('id', $id)->first();
-        $teachers = Teacher::select('id', 'first_name', 'middle_name', 'last_name')->get();
-
         return Inertia::render('Classes/Edit', [
-            'classItem' => $class,
-            'teachers' => $teachers
+            'classItem' => new ClassesResource($this->classes->find($id)),
+            'teachers' => TeacherResource::collection($this->teachers->options()),
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateClassesRequest $request, string $id)
     {
-        $request->validate([
-            'teacher_id' => 'required|exists:teachers,id',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string'
-        ]);
+        $class = $this->classes->find($id);
 
-        $class = Classes::where('id', $id)->first();
-        $class->teacher_id = $request->teacher_id;
-        $class->name = $request->name;
-        $class->description = $request->description;
-        $class->save();
+        try {
+            $this->classes->update($class, $request->validated());
 
-        return redirect()->route('classes.index')->with('success', 'Class updated successfully.');
+            return redirect()->route('classes.index')->with('success', 'Class updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error updating class', [
+                'message' => $e->getMessage(),
+                'class_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->back()->withInput()->withErrors([
+                'error' => 'Something went wrong: '.$e->getMessage(),
+            ]);
+        }
     }
 
-    public function destroy($id)
+    public function destroy(string $id)
     {
-        $class = Classes::where('id', $id)->first();
-        $class->delete();
+        try {
+            $this->classes->delete($this->classes->find($id));
 
-        return redirect()->route('classes.index')->with('success', 'Class deleted successfully.');
+            return redirect()->route('classes.index')->with('success', 'Class deleted successfully.');
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete class', [
+                'class_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('classes.index')->with('error', 'Failed to delete class. Please try again.');
+        }
     }
 
-    public function show($id)
+    public function show(string $id)
     {
-        $class = Classes::with('teacher:id,first_name,middle_name,last_name')->findOrFail($id);
+        $class = $this->classes->find($id, ['teacher:id,first_name,middle_name,last_name']);
+
         return Inertia::render('Classes/View', [
-            'classItem' => $class
+            'classItem' => new ClassesResource($class),
         ]);
     }
 }

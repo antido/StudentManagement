@@ -2,48 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\StudentsExport;
-use App\Imports\StudentsImport;
-use App\Mail\StudentReportMail;
-use App\Models\Student;
-use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use App\Http\Requests\Student\ImportStudentsRequest;
+use App\Http\Requests\Student\IndexStudentRequest;
+use App\Http\Requests\Student\StoreStudentRequest;
+use App\Http\Requests\Student\UpdateStudentRequest;
+use App\Http\Resources\StudentResource;
+use App\Services\StudentService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
-use Maatwebsite\Excel\Facades\Excel;
+use Inertia\Inertia;
 
 class StudentController extends Controller
 {
+    public function __construct(private StudentService $students) {}
+
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
-    {   
-        $search = $request->input('search');
-        $sortField = $request->input('sort', 'id');
-        $sortDirection = $request->input('direction', 'desc');
+    public function index(IndexStudentRequest $request)
+    {
+        $students = $this->students->paginate(
+            $request->search(),
+            $request->sortField(),
+            $request->sortDirection()
+        );
 
-        $students = Student::with('user:id,name')
-                            ->when($search, function($query, $search){
-                               $query->whereRaw(
-                                            "CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ?",
-                                            ["%{$search}%"]
-                                        )
-                                    ->orWhere('email', 'like', "%{$search}%");
-                            })
-                            ->orderBy($sortField, $sortDirection)
-                            ->paginate(10)
-                            ->withQueryString();
-
-        return inertia('Students/Index', [
-            'students' => $students,
-            'search' => $search,
-            'sort' => $sortField,
-            'direction' => $sortDirection
+        return Inertia::render('Students/Index', [
+            'students' => $students->through(fn ($student) => new StudentResource($student)),
+            'search' => $request->search(),
+            'sort' => $request->sortField(),
+            'direction' => $request->sortDirection(),
         ]);
     }
 
@@ -52,73 +39,34 @@ class StudentController extends Controller
      */
     public function create()
     {
-        return inertia('Students/Create');
+        return Inertia::render('Students/Create');
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreStudentRequest $request)
     {
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:students,email|unique:users,email',
-            'age' => 'required|integer|min:1|max:150',
-            'birthday' => 'nullable|date',
-            'gender' => 'required|in:m,f',
-            'score' => 'required|integer|min:0|max:100',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
-
         try {
-            DB::beginTransaction();
-
-            $user = User::create([
-                'name' => $request->first_name . ' ' . $request->middle_name . ' ' . $request->last_name,
-                'email' => $request->email,
-                'password' => Hash::make('password'),
-            ]);
-
-            $studentData = [
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'last_name' => $request->last_name,
-                'email' => $request->email,
-                'age' => $request->age,
-                'birthday' => $request->birthday,
-                'gender' => $request->gender,
-                'score' => $request->score,
-                'user_id' => $user->id,
-            ];
-
-            if ($request->hasFile('image')) {
-                $studentData['image'] = $request->file('image')
-                    ->store('students', 'public');
-            }
-
-            Student::create($studentData);
-
-            DB::commit();
+            $this->students->create(
+                $request->safe()->except('image'),
+                $request->file('image')
+            );
 
             return redirect()
                 ->route('students.index')
                 ->with('success', 'Student and user created successfully.');
-
         } catch (\Exception $e) {
-            DB::rollBack();
-
-            Log::error('Error', [
-                'Message' => $e->getMessage(),
-                'Traces' => $e->getTrace(),
+            Log::error('Error creating student', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return redirect()
                 ->back()
                 ->withInput()
                 ->withErrors([
-                    'error' => 'Something went wrong: ' . $e->getMessage(),
+                    'error' => 'Something went wrong: '.$e->getMessage(),
                 ]);
         }
     }
@@ -128,11 +76,8 @@ class StudentController extends Controller
      */
     public function show(string $id)
     {
-        $student = Student::with('user')->findOrFail($id);
-        $student->image_url = $student->image ? asset('storage/' . $student->image) : null;
-
-        return inertia('Students/View', [
-            'student' => $student
+        return Inertia::render('Students/View', [
+            'student' => new StudentResource($this->students->find($id, ['user'])),
         ]);
     }
 
@@ -141,87 +86,32 @@ class StudentController extends Controller
      */
     public function edit(string $id)
     {
-        $student = Student::findOrFail($id);
-
-        return inertia('Students/Edit', [
-            'student' => $student
+        return Inertia::render('Students/Edit', [
+            'student' => new StudentResource($this->students->find($id)),
         ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateStudentRequest $request, string $id)
     {
-        $validated = $request->validate([
-            'id' => 'required|exists:students,id',
-            'first_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:students,email,' . $request->id,
-            'age' => 'required|integer|min:1|max:150',
-            'birthday' => 'nullable|date',
-            'gender' => 'required|in:m,f',
-            'score' => 'required|integer|min:0|max:100',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        ]);
+        $student = $this->students->find($id);
 
         try {
-            DB::transaction(function () use ($request, $validated) {
-
-                $student = Student::findOrFail($validated['id']);
-
-                $studentData = [
-                    'first_name' => $validated['first_name'],
-                    'middle_name' => $validated['middle_name'] ?? null,
-                    'last_name' => $validated['last_name'],
-                    'email' => $validated['email'],
-                    'age' => $validated['age'],
-                    'birthday' => $validated['birthday'] ?? null,
-                    'gender' => $validated['gender'],
-                    'score' => $validated['score'],
-                ];
-
-                if ($request->hasFile('image')) {
-
-                    // Delete old image
-                    if (
-                        $student->image &&
-                        Storage::disk('public')->exists($student->image)
-                    ) {
-                        Storage::disk('public')->delete($student->image);
-                    }
-
-                    // Store new image
-                    $studentData['image'] = $request->file('image')
-                        ->store('students', 'public');
-                }
-
-                // Update student
-                $student->update($studentData);
-
-                // Update related user
-                if ($student->user) {
-                    $student->user->update([
-                        'name' => trim(
-                            $validated['first_name'] . ' ' .
-                            ($validated['middle_name'] ?? '') . ' ' .
-                            $validated['last_name']
-                        ),
-                        'email' => $validated['email'],
-                    ]);
-                }
-            });
+            $this->students->update(
+                $student,
+                $request->safe()->except('image'),
+                $request->file('image')
+            );
 
             return redirect()
                 ->route('students.index')
                 ->with('success', 'Student updated successfully.');
-
         } catch (\Exception $e) {
-
             Log::error('Error updating student', [
                 'message' => $e->getMessage(),
-                'student_id' => $request->id,
+                'student_id' => $id,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -229,7 +119,7 @@ class StudentController extends Controller
                 ->back()
                 ->withInput()
                 ->withErrors([
-                    'error' => 'Something went wrong: ' . $e->getMessage(),
+                    'error' => 'Something went wrong: '.$e->getMessage(),
                 ]);
         }
     }
@@ -240,19 +130,7 @@ class StudentController extends Controller
     public function destroy(string $id)
     {
         try {
-            $student = Student::where('id', $id)->first();
-
-            if (!$student) {
-                return redirect()
-                    ->route('students.index')
-                    ->with('error', 'Student not found.');
-            }
-
-            if ($student->image && Storage::disk('public')->exists($student->image)) {
-                Storage::disk('public')->delete($student->image);
-            }
-
-            $student->delete();
+            $this->students->delete($this->students->find($id));
 
             return redirect()
                 ->route('students.index')
@@ -274,46 +152,29 @@ class StudentController extends Controller
      */
     public function export()
     {
-        return Excel::download(new StudentsExport, 'students.xlsx');
+        return $this->students->export();
     }
 
     /**
      * Import data to database
      */
-    public function import(Request $request)
+    public function import(ImportStudentsRequest $request)
     {
-        $request->validate([
-            'file' => 'required|mimes:xlsx,csv',
-        ]);
-
-        Excel::import(new StudentsImport, $request->file('file'));
+        $this->students->import($request->file('file'));
 
         return redirect()->back()->with('success', 'Students imported successfully.');
     }
 
-    public function studentReport($id)
+    public function studentReport(string $id)
     {
-        // Load student with related classes + scores
-        $student = Student::with('studentClasses.class')->findOrFail($id);
+        $student = $this->students->find($id);
 
-        // Generate PDF
-        $pdf = Pdf::loadView('pdfs.student_report', compact('student'))
-            ->setPaper('a4', 'portrait');
-
-        return $pdf->stream("student_report_{$student->id}.pdf");
+        return $this->students->reportPdf($student)->stream("student_report_{$student->id}.pdf");
     }
 
-    public function emailReport($id)
+    public function emailReport(string $id)
     {
-        $student = Student::with('studentClasses.class')->findOrFail($id);
-
-        // Generate PDF as raw bytes
-        $pdf = Pdf::loadView('pdfs.student_report', compact('student'))
-            ->setPaper('a4', 'portrait')
-            ->output();
-
-        // Send email with attachment
-        Mail::to($student->email)->send(new StudentReportMail($student, $pdf));
+        $this->students->emailReport($this->students->find($id));
 
         return back()->with('success', 'Report sent to student email!');
     }
